@@ -7,7 +7,7 @@
 
 ## What this is
 
-A full-stack, launch-ready web application implementing a unified data-driven optimisation suite for digital payment platforms. Three AI systems — an A/B experimentation engine, a hybrid recommendation engine, and a funnel analytics module — are integrated through a shared feature store architecture.
+A Full-stack prototype implementing a production-inspired optimisation architecture. Three AI systems — an A/B experimentation engine, a hybrid recommendation engine, and a funnel analytics module — are integrated through a shared feature store architecture.
 
 **Research context:** This suite is the artefact produced by the MS5132 Major ISM Project:  
 *"Enhancing User Journey Efficiency in Digital Payments through a Data-Driven Optimisation Suite"*
