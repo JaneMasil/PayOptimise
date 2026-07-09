@@ -1,6 +1,7 @@
 # PayOptimise Suite
 ### MS5132 Major ISM Project — University of Galway 2025–2026
-**Jane Donisha Masila Clement Valavan | Student ID: 25253199**
+**Jane Donisha Masila Clement Valavan**
+<img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/7a335e6a-cd7d-4578-b7a0-c5c60d499446" />
 
 ---
 
@@ -10,6 +11,7 @@ A full-stack, launch-ready web application implementing a unified data-driven op
 
 **Research context:** This suite is the artefact produced by the MS5132 Major ISM Project:  
 *"Enhancing User Journey Efficiency in Digital Payments through a Data-Driven Optimisation Suite"*
+<img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/e5268557-0d89-4d59-a796-ae8b31589aa8" />
 
 ---
 
@@ -27,6 +29,7 @@ bash launch.sh
 # 3. Open browser
 open http://localhost:5000
 ```
+<img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/9767dbf2-d717-4ab2-ab6a-e69dab787e1d" />
 
 ---
 
@@ -62,6 +65,7 @@ payoptimise-suite/
     └── js/
         └── utils.js            # Shared API client, chart utilities, DOM helpers
 ```
+<img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/6ce8aeec-86a4-45a4-83cf-1d4897bcefee" />
 
 ---
 
@@ -127,6 +131,7 @@ payoptimise-suite/
 
 **Integration advantage: +7.3pp over siloed (answers RQ1)**  
 **Feature store boost: +8.4% CTR from real-time signals (answers RQ2)**
+<img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/27b699d3-eac0-4cfe-99b9-4fc7dc5c685a" />
 
 ---
 
