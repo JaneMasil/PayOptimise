@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}Simulator{% endblock %}
+{% block page_title %}Live Payment Simulator{% endblock %}
+{% block page_sub %}Simulate a full payment journey through the optimisation suite in real time{% endblock %}
+
+{% block content %}
+
+<div class="grid2" style="align-items:start">
+
+  <!-- Config panel -->
+  <div class="card">
+    <div class="card-title">Configure journey</div>
+
+    <div class="form-row">
+      <label>Device type</label>
+      <div class="seg-btns" id="dev-seg">
+        <button class="seg-btn active" data-value="mobile">📱 Mobile</button>
+        <button class="seg-btn" data-value="desktop">💻 Desktop</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Authentication method</label>
+      <div class="seg-btns" id="auth-seg">
+        <button class="seg-btn active" data-value="biometric">🔐 Biometric</button>
+        <button class="seg-btn" data-value="otp">📲 OTP (SMS)</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Recommendations</label>
+      <div class="seg-btns" id="rec-seg">
+        <button class="seg-btn active" data-value="true">⭐ Personalised on</button>
+        <button class="seg-btn" data-value="false">❌ Generic / off</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Account tenure</label>
+      <div class="seg-btns" id="tenure-seg">
+        <button class="seg-btn" data-value="new">New</button>
+        <button class="seg-btn active" data-value="returning">Returning</button>
+        <button class="seg-btn" data-value="loyal">Loyal</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Hour: <span id="hour-val">13:00 (peak)</span></label>
+      <input type="range" id="hour-range" min="0" max="23" value="13"
+        oninput="document.getElementById('hour-val').textContent=this.value+':00'+((this.value>=12&&this.value<=14||this.value>=19&&this.value<=21)?' (peak)':'')">
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="runSimulation()">
+      ▶ Run simulation
+    </button>
+
+    <!-- Stats -->
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">EXPECTED DROP-OFF RATES</div>
+      <div id="expected-rates" style="font-size:12px;color:var(--text2);line-height:2"></div>
+    </div>
+  </div>
+
+  <!-- Results panel -->
+  <div>
+    <div class="card">
+      <div class="card-title">Journey simulation</div>
+      <div class="sim-steps" id="sim-steps">
+        <div class="sim-step" id="s-onboarding">Onboarding</div>
+        <div class="sim-arrow">→</div>
+        <div class="sim-step" id="s-payment_init">Pay init</div>
+        <div class="sim-arrow">→</div>
+        <div class="sim-step" id="s-authentication">Auth</div>
+        <div class="sim-arrow">→</div>
+        <div class="sim-step" id="s-confirmation">Confirm</div>
+        <div class="sim-arrow">→</div>
+        <div class="sim-step" id="s-done">Done</div>
+      </div>
+      <div id="sim-log" style="font-size:12px;color:var(--text2);line-height:1.9;min-height:80px"></div>
+      <div id="sim-result" style="display:none;margin-top:12px"></div>
+    </div>
+
+    <!-- Run history -->
+    <div class="card">
+      <div class="card-title">Run history (this session)</div>
+      <div class="table-wrap">
+        <table style="font-size:12px">
+          <thead>
+            <tr>
+              <th>#</th><th>Device</th><th>Auth</th><th>Recs</th>
+              <th>Dropped at</th><th>Result</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3)">No runs yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Expected probabilities -->
+    <div class="card">
+      <div class="card-title">Theoretical predictions — cognitive load theory</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">
+        Drop-off probabilities are grounded in <strong>Sweller et al. (2019)</strong> cognitive load theory.
+        OTP authentication imposes System 2 cognitive demand — recall, transcription, timing pressure —
+        inflating abandonment by 3–4× relative to biometric alternatives.
+      </div>
+      <div id="theory-chart-wrap" style="margin-top:12px">
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="theoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bulk simulation -->
+<div class="card">
+  <div class="card-title">Bulk simulation — compare configurations</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-outline btn-sm" onclick="bulkSim()">Run 100 simulations</button>
+    <span style="font-size:11px;color:var(--text3)" id="bulk-status"></span>
+  </div>
+  <div id="bulk-results"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const simState = { device:'mobile', auth:'biometric', rec_on:true, tenure:'returning', hour:13 };
+let runCount = 0;
+const runHistory = [];
+
+function initSegListeners() {
+  initSegButtons('#dev-seg',    v => { simState.device   = v.toLowerCase(); updateRates(); });
+  initSegButtons('#auth-seg',   v => { simState.auth     = v.toLowerCase().startsWith('b') ? 'biometric' : 'otp'; updateRates(); });
+  initSegButtons('#rec-seg',    v => { simState.rec_on   = v === 'true'; updateRates(); });
+  initSegButtons('#tenure-seg', v => { simState.tenure   = v.toLowerCase(); updateRates(); });
+  document.getElementById('hour-range').addEventListener('input', function() {
+    simState.hour = parseInt(this.value);
+    updateRates();
+  });
+}
+
+function updateRates() {
+  const DROP = {
+    'Onboarding':    simState.device==='mobile' ? (simState.tenure==='loyal'?0.08:0.15) : 0.09,
+    'Payment init':  simState.rec_on ? 0.12 : 0.22,
+    'Authentication':simState.auth==='biometric' ? 0.12 : (simState.device==='mobile'?0.43:0.28),
+    'Confirmation':  0.04,
+  };
+  document.getElementById('expected-rates').innerHTML = Object.entries(DROP).map(([stage, p]) => `
+    <div style="display:flex;justify-content:space-between">
+      <span>${stage}</span>
+      <span class="${p>0.3?'text-red':p>0.15?'text-amber':'text-green'}" style="font-weight:600">${(p*100).toFixed(0)}%</span>
+    </div>`).join('');
+}
+
+async function runSimulation() {
+  const stages = ['onboarding','payment_init','authentication','confirmation'];
+
+  // Reset steps
+  stages.forEach(s => {
+    const el = document.getElementById('s-'+s);
+    if(el) el.className = 'sim-step';
+  });
+  document.getElementById('s-done').className = 'sim-step';
+  document.getElementById('sim-log').innerHTML = '';
+  document.getElementById('sim-result').style.display = 'none';
+
+  try {
+    const result = await API.post('/api/simulate', {
+      device:   simState.device,
+      auth:     simState.auth,
+      rec_on:   simState.rec_on,
+      tenure:   simState.tenure,
+      hour:     simState.hour,
+    });
+
+    const log = document.getElementById('sim-log');
+    let delay = 0;
+    let dropped = false;
+
+    for (const step of result.journey) {
+      await new Promise(r => setTimeout(r, 650));
+      const el = document.getElementById('s-' + step.stage);
+      if (el) el.className = 'sim-step active';
+
+      if (step.passed) {
+        if (el) el.className = 'sim-step done';
+        log.innerHTML += `<span class="text-green">✓</span> <strong>${step.stage.replace('_',' ')}</strong> — passed (rolled ${step.rolled}, threshold ${step.p_drop}%)<br>`;
+      } else {
+        if (el) el.className = 'sim-step dropped';
+        log.innerHTML += `<span class="text-red">✗</span> <strong>Dropped at ${step.stage.replace('_',' ')}</strong> — rolled ${step.rolled}, threshold ${step.p_drop}%<br>`;
+        dropped = true;
+        break;
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 400));
+
+    if (result.converted) {
+      document.getElementById('s-done').className = 'sim-step done';
+      log.innerHTML += `<span class="text-green">✓</span> <strong>Payment completed!</strong><br>`;
+    }
+
+    const resEl = document.getElementById('sim-result');
+    resEl.style.display = 'block';
+    if (result.converted) {
+      resEl.innerHTML = `<div class="alert alert-green"><span class="alert-icon">✓</span>
+        <div><strong>Payment converted!</strong> Journey complete.</div></div>`;
+    } else {
+      resEl.innerHTML = `<div class="alert alert-red"><span class="alert-icon">✗</span>
+        <div>
+          <strong>Abandoned at: ${(result.drop_stage||'').replace('_',' ')}</strong><br>
+          <span class="text-sm" style="margin-top:4px;display:block">
+            💡 Suggestion: ${result.suggestion}
+          </span>
+        </div></div>`;
+    }
+
+    // Add to history
+    runCount++;
+    runHistory.unshift({
+      n: runCount,
+      device: simState.device,
+      auth:   simState.auth,
+      rec:    simState.rec_on ? 'on' : 'off',
+      drop:   result.drop_stage || '—',
+      conv:   result.converted,
+    });
+    if (runHistory.length > 10) runHistory.pop();
+    renderHistory();
+
+  } catch(e) {
+    document.getElementById('sim-log').innerHTML = `<div class="alert alert-red">Error: ${e.message}</div>`;
+  }
+}
+
+function renderHistory() {
+  const rows = runHistory.map(r => `
+    <tr>
+      <td>${r.n}</td>
+      <td>${r.device}</td>
+      <td>${r.auth}</td>
+      <td>${r.rec}</td>
+      <td>${r.drop.replace('_',' ')}</td>
+      <td>${r.conv ? badge('Converted','green') : badge('Abandoned','red')}</td>
+    </tr>`).join('');
+  setHTML('history-body', rows || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">No runs yet</td></tr>');
+}
+
+async function bulkSim() {
+  setText('bulk-status', 'Running 100 simulations...');
+  setHTML('bulk-results', '<div class="loading"><div class="spinner"></div></div>');
+
+  const configs = [
+    {device:'mobile',  auth:'otp',       rec_on:false, tenure:'returning', hour:10, label:'Mobile OTP, no recs'},
+    {device:'mobile',  auth:'biometric', rec_on:true,  tenure:'returning', hour:13, label:'Mobile biometric + recs'},
+    {device:'desktop', auth:'otp',       rec_on:false, tenure:'new',       hour:10, label:'Desktop OTP, no recs'},
+    {device:'desktop', auth:'biometric', rec_on:true,  tenure:'loyal',     hour:20, label:'Desktop biometric + recs'},
+  ];
+
+  const results = await Promise.all(configs.map(async (cfg) => {
+    let conv = 0;
+    for (let i = 0; i < 25; i++) {
+      const r = await API.post('/api/simulate', cfg);
+      if (r.converted) conv++;
+    }
+    return { label: cfg.label, conv_rate: conv / 25, n: 25 };
+  }));
+
+  setText('bulk-status', '100 runs complete');
+  makeChart('bulk-chart', 'bar',
+    results.map(r => r.label),
+    [{ data: results.map(r => (r.conv_rate*100).toFixed(1)),
+       backgroundColor: results.map(r => r.conv_rate > 0.6 ? '#22c55e' : r.conv_rate > 0.4 ? '#f59e0b' : '#ef4444'),
+       borderRadius: 4 }],
+    { scales: { y: { ...CHART_DEFAULTS.scales.y, max:100, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%' }}}}
+  );
+  setHTML('bulk-results', `
+    <div class="chart-wrap" style="height:200px"><canvas id="bulk-chart"></canvas></div>
+    <div class="table-wrap" style="margin-top:12px">
+      <table style="font-size:12px">
+        <thead><tr><th>Configuration</th><th>Conv. rate</th><th>n</th></tr></thead>
+        <tbody>${results.map(r=>`<tr><td>${r.label}</td><td class="${r.conv_rate>0.6?'text-green':r.conv_rate>0.4?'text-amber':'text-red'}">${(r.conv_rate*100).toFixed(1)}%</td><td>${r.n}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`);
+
+  // Need to init chart after DOM update
+  setTimeout(() => {
+    makeChart('bulk-chart', 'bar',
+      results.map(r => r.label),
+      [{ data: results.map(r => (r.conv_rate*100).toFixed(1)),
+         backgroundColor: results.map(r => r.conv_rate > 0.6 ? '#22c55e' : r.conv_rate > 0.4 ? '#f59e0b' : '#ef4444'),
+         borderRadius: 4 }],
+      { scales: { y: { ...CHART_DEFAULTS.scales.y, max:100, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%' }}}}
+    );
+  }, 100);
+}
+
+// Theory chart
+function initTheoryChart() {
+  makeChart('theoryChart', 'bar',
+    ['Onboarding OTP', 'Onboarding Bio', 'Auth OTP mob.', 'Auth Bio mob.', 'Auth OTP desk.', 'Auth Bio desk.'],
+    [{ data:[20,13,43,14,28,10], backgroundColor:['#f59e0b','#22c55e','#ef4444','#22c55e','#f59e0b','#14b8a6'], borderRadius:4 }],
+    { scales: { y: { ...CHART_DEFAULTS.scales.y, max:55, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%' }}}}
+  );
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSegListeners();
+  updateRates();
+  initTheoryChart();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block page_title %}PayOptimise Suite{% endblock %}
+{% block page_sub %}Unified data-driven optimisation for digital payment platforms{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="card" style="border-top:3px solid var(--blue);margin-bottom:20px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:8px">
+        Enhancing User Journey Efficiency in Digital Payments
+      </h1>
+      <p style="color:var(--text2);font-size:14px;max-width:600px;line-height:1.7">
+        A unified A/B experimentation engine, hybrid recommendation system, and behavioural
+        analytics dashboard — connected through a shared feature store. MS5132 Major ISM
+        Project, University of Galway 2025–2026.
+      </p>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <a href="/dashboard" class="btn btn-primary">Open Dashboard →</a>
+        <a href="/experiments" class="btn btn-outline">View Experiments</a>
+        <a href="/simulator" class="btn btn-outline">Run Simulator</a>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:240px">
+      <div style="background:var(--bg3);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--green)" id="home-conv">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Conversion rate</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--blue)" id="home-sessions">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Sessions</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--amber)" id="home-ctr">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Rec CTR</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--red)" id="home-auth">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Auth drop-off</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 Components -->
+<div class="grid3">
+  <div class="card" style="border-top:3px solid var(--blue)">
+    <div style="font-size:22px;margin-bottom:10px">🧪</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px">A/B Experimentation Engine</div>
+    <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+      Causal inference-based controlled experiments. Hash-based randomisation,
+      chi-square significance testing, Cohen's h effect size, guardrail metrics.
+    </p>
+    <div id="home-ab-status" style="font-size:11px;color:var(--text3)">Loading...</div>
+    <a href="/experiments" class="btn btn-outline btn-sm" style="margin-top:12px">View experiments →</a>
+  </div>
+
+  <div class="card" style="border-top:3px solid var(--teal)">
+    <div style="font-size:22px;margin-bottom:10px">⭐</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px">Hybrid Recommendation Engine</div>
+    <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+      4-signal weighted scoring: collaborative (40%), device match (31%),
+      time context (22%), session depth (7%). Shared feature store integration.
+    </p>
+    <div id="home-rec-status" style="font-size:11px;color:var(--text3)">Loading...</div>
+    <a href="/recommendations" class="btn btn-outline btn-sm" style="margin-top:12px">View engine →</a>
+  </div>
+
+  <div class="card" style="border-top:3px solid var(--amber)">
+    <div style="font-size:22px;margin-bottom:10px">📉</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px">Funnel Analytics Dashboard</div>
+    <p style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+      Stage-by-stage drop-off analysis with cohort segmentation, friction alerts
+      and closed-loop A/B experiment triggering. 20,000-session dataset.
+    </p>
+    <div id="home-funnel-status" style="font-size:11px;color:var(--text3)">Loading...</div>
+    <a href="/dashboard" class="btn btn-outline btn-sm" style="margin-top:12px">View funnel →</a>
+  </div>
+</div>
+
+<!-- Key findings -->
+<div class="card">
+  <div class="card-title">Key research findings</div>
+  <div class="grid3">
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px">RQ1 — Integration advantage</div>
+      <div style="font-size:18px;font-weight:700;color:var(--green)">+7.3pp</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">Integrated (58.7%) vs siloed (51.4%) conversion rate</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px">RQ2 — Feature store boost</div>
+      <div style="font-size:18px;font-weight:700;color:var(--blue)">+8.4%</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">CTR improvement from real-time shared feature signals</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px">Auth optimisation</div>
+      <div style="font-size:18px;font-weight:700;color:var(--amber)">−65%</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">Authentication drop-off — biometric vs OTP (p &lt; 0.001)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Architecture diagram -->
+<div class="card">
+  <div class="card-title">Suite architecture — shared feature store</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0">
+    {% for item in [
+      ('📥', 'Data ingestion', 'var(--bg3)', 'var(--border)'),
+      ('→', '', 'transparent', 'transparent'),
+      ('🗄️', 'Shared feature store', 'rgba(59,130,246,0.12)', 'var(--blue)'),
+      ('→', '', 'transparent', 'transparent'),
+      ('🧪', 'A/B engine', 'var(--bg3)', 'var(--border)'),
+    ] %}
+      {% if item[0] == '→' %}
+        <div style="color:var(--text3);font-size:18px">→</div>
+      {% else %}
+        <div style="background:{{item[2]}};border:1px solid {{item[3]}};border-radius:8px;padding:10px 14px;text-align:center;font-size:12px;min-width:120px">
+          <div style="font-size:18px;margin-bottom:4px">{{item[0]}}</div>
+          {{item[1]}}
+        </div>
+      {% endif %}
+    {% endfor %}
+    <div style="color:var(--text3);font-size:18px">→</div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center;font-size:12px;min-width:120px">
+      <div style="font-size:18px;margin-bottom:4px">⭐</div>Rec engine
+    </div>
+    <div style="color:var(--text3);font-size:18px">→</div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center;font-size:12px;min-width:120px">
+      <div style="font-size:18px;margin-bottom:4px">📊</div>Analytics
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadHome() {
+  try {
+    const [stats, ctr, funnel, exps] = await Promise.all([
+      API.get('/api/stats'),
+      API.get('/api/recommend/ctr'),
+      API.get('/api/funnel'),
+      API.get('/api/experiments'),
+    ]);
+    setText('home-conv',    fmt.pct(stats.conversion_rate));
+    setText('home-sessions', fmt.num(stats.total_sessions));
+    setText('home-ctr',    fmt.pct(ctr.hybrid_model));
+    setText('home-auth',   fmt.pct(stats.auth_otp_drop));
+
+    const sigExps = exps.filter(e => e.significant).length;
+    setHTML('home-ab-status',
+      `<span class="badge badge-green">${sigExps}/3 significant</span> · p &lt; 0.001 all experiments`);
+
+    setHTML('home-rec-status',
+      `<span class="badge badge-teal">${fmt.pct(ctr.hybrid_model)} CTR</span> · ${fmt.pct(ctr.relative_uplift,0)} vs random baseline`);
+
+    const authAlert = funnel.alerts.find(a => a.stage === 'Authentication');
+    if (authAlert) {
+      setHTML('home-funnel-status',
+        `${severityBadge(authAlert.severity)} Authentication: ${authAlert.drop_off} drop-off`);
+    }
+  } catch(e) {
+    console.error('Home load error:', e);
+  }
+}
+loadHome();
+</script>
+{% endblock %}

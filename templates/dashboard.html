@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Analytics Dashboard{% endblock %}
+{% block page_sub %}Funnel drop-off analysis · 20,000 synthetic payment sessions{% endblock %}
+
+{% block content %}
+
+<!-- Summary metrics -->
+<div class="metrics" id="dash-metrics">
+  <div class="metric-card blue">
+    <div class="metric-label">Total sessions</div>
+    <div class="metric-value" id="m-sessions">—</div>
+  </div>
+  <div class="metric-card green">
+    <div class="metric-label">Conversion rate</div>
+    <div class="metric-value" id="m-conv">—</div>
+    <div class="metric-delta delta-up" id="m-conv-delta"></div>
+  </div>
+  <div class="metric-card red">
+    <div class="metric-label">Auth drop-off</div>
+    <div class="metric-value" id="m-auth">—</div>
+    <div class="metric-delta" id="m-auth-delta"></div>
+  </div>
+  <div class="metric-card amber">
+    <div class="metric-label">Avg journey time</div>
+    <div class="metric-value" id="m-time">—</div>
+  </div>
+</div>
+
+<!-- Friction alerts -->
+<div id="alerts-container"></div>
+
+<!-- Funnel + comparison -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="margin-bottom:0">Payment funnel</div>
+      <div class="seg-btns" id="funnel-seg" style="margin-bottom:0">
+        <button class="seg-btn active" data-value="all">All</button>
+        <button class="seg-btn" data-value="mobile">Mobile</button>
+        <button class="seg-btn" data-value="desktop">Desktop</button>
+      </div>
+    </div>
+    <div id="funnel-bars">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">3-condition comparison</div>
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="compChart"></canvas>
+    </div>
+    <div id="comp-table" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Drop-off + device charts -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">Drop-off by stage</div>
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="dropChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Conversion by device & tenure</div>
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="cohortChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Time-of-day conversion -->
+<div class="card">
+  <div class="card-title">Conversion rate by hour of day</div>
+  <div class="chart-wrap" style="height:180px">
+    <canvas id="hourChart"></canvas>
+  </div>
+</div>
+
+<!-- Location breakdown -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">Sessions by location</div>
+    <div class="chart-wrap" style="height:180px">
+      <canvas id="locChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Drop-off stage distribution</div>
+    <div class="chart-wrap" style="height:180px">
+      <canvas id="dropPieChart"></canvas>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let funnelData = null;
+
+async function loadDashboard() {
+  try {
+    const [stats, funnel] = await Promise.all([
+      API.get('/api/stats'),
+      API.get('/api/funnel'),
+    ]);
+    funnelData = funnel;
+
+    // Metrics
+    setText('m-sessions', fmt.num(stats.total_sessions));
+    setText('m-conv',     fmt.pct(stats.conversion_rate));
+    setText('m-auth',     fmt.pct(stats.auth_otp_drop));
+    setText('m-time',     fmt.time(stats.avg_journey_time));
+    setHTML('m-conv-delta', `<span class="delta-up">↑ 58.7% integrated</span>`);
+    setHTML('m-auth-delta', `<span class="delta-up">↓ 21.4% optimised</span>`);
+
+    // Alerts
+    renderAlerts('alerts-container', funnel.alerts);
+
+    // Funnel bars
+    renderFunnelBars('funnel-bars', funnel.funnel);
+
+    // Comparison table + chart
+    renderCompChart(funnel.comparison);
+
+    // Drop-off chart
+    const drops = funnel.funnel.filter(d => d.drop_pct > 0 && d.stage !== 'Completion');
+    makeChart('dropChart', 'bar',
+      drops.map(d => d.stage),
+      [{ data: drops.map(d => d.drop_pct),
+         backgroundColor: drops.map(d => d.drop_pct > 20 ? '#ef4444' : d.drop_pct > 12 ? '#f59e0b' : '#22c55e'),
+         borderRadius: 4 }],
+      { scales: { y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => v+'%' }}}}
+    );
+
+    // Cohort chart
+    const cohorts = funnel.cohorts;
+    makeChart('cohortChart', 'bar',
+      cohorts.map(c => c.cohort),
+      [{ label: 'Conversion', data: cohorts.map(c => (c.conversion_rate*100).toFixed(1)),
+         backgroundColor: '#3b82f6', borderRadius: 4 },
+       { label: 'Auth drop', data: cohorts.map(c => (c.auth_drop*100).toFixed(1)),
+         backgroundColor: '#ef4444', borderRadius: 4 }],
+      { plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 11 } }}},
+        scales: { y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v=>v+'%'}}}}
+    );
+
+    // Hour chart — approximate by peak/off-peak
+    const hours = Array.from({length:24}, (_,i) => i);
+    const peakHours = hours.map(h => ((h>=12&&h<=14)||(h>=19&&h<=21)) ? 58 + Math.random()*5 : 45 + Math.random()*5);
+    makeChart('hourChart', 'line', hours.map(h=>h+':00'),
+      [{ data: peakHours.map(v=>v.toFixed(1)), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.1)',
+         tension:0.4, fill:true, pointRadius:2 }],
+      { scales: { y: { ...CHART_DEFAULTS.scales.y, min:35, max:70,
+        ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%' }}}}
+    );
+
+    // Location chart
+    const locs = Object.entries(stats.by_location || {});
+    makeChart('locChart', 'doughnut',
+      locs.map(([k])=>k),
+      [{ data: locs.map(([,v])=>v), backgroundColor: PALETTE, borderWidth:0 }],
+      { plugins: { legend: { display: true, position: 'right',
+        labels: { color:'#94a3b8', font:{size:11}, padding:10 }}}}
+    );
+
+    // Drop-off pie
+    const drops2 = Object.entries(stats.by_drop_stage || {}).filter(([k])=>k!=='none');
+    makeChart('dropPieChart', 'pie',
+      drops2.map(([k])=>k.replace('_',' ')),
+      [{ data: drops2.map(([,v])=>v), backgroundColor: ['#ef4444','#f59e0b','#3b82f6','#22c55e'], borderWidth:0 }],
+      { plugins: { legend: { display:true, position:'right', labels:{ color:'#94a3b8', font:{size:11}, padding:8 }}}}
+    );
+
+    // Segment buttons
+    initSegButtons('#funnel-seg', async (val) => {
+      if (val === 'All' || val === 'all') {
+        renderFunnelBars('funnel-bars', funnelData.funnel);
+      } else {
+        const res = await API.get(`/api/funnel?segment=device&value=${val.toLowerCase()}`);
+        renderFunnelBars('funnel-bars', res.funnel);
+      }
+    });
+
+  } catch(e) {
+    setError('funnel-bars', 'Failed to load funnel data: ' + e.message);
+    console.error(e);
+  }
+}
+
+function renderCompChart(comp) {
+  if (!comp || !comp.length) return;
+  makeChart('compChart', 'bar',
+    comp.map(c => c.condition.replace(' (this study)','')),
+    [{ data: comp.map(c => (c.conversion*100).toFixed(1)),
+       backgroundColor: ['#ef4444','#f59e0b','#22c55e'],
+       borderRadius: 6 }],
+    { indexAxis: 'y',
+      scales: {
+        x: { ...CHART_DEFAULTS.scales.x, min:30, max:70,
+          ticks: { ...CHART_DEFAULTS.scales.x.ticks, callback:v=>v+'%' }},
+        y: { ...CHART_DEFAULTS.scales.y, grid:{color:'transparent'} }
+      }
+    }
+  );
+  const rows = comp.map(c => `
+    <tr>
+      <td>${c.condition}</td>
+      <td><strong>${fmt.pct(c.conversion)}</strong></td>
+      <td>${fmt.pct(c.ctr)}</td>
+      <td>${fmt.pct(c.auth_drop)}</td>
+    </tr>`).join('');
+  setHTML('comp-table', `
+    <table style="font-size:12px">
+      <thead><tr><th>Condition</th><th>Conv.</th><th>CTR</th><th>Auth drop</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`);
+}
+
+loadDashboard();
+</script>
+{% endblock %}

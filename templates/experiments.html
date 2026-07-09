@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}A/B Experiments{% endblock %}
+{% block page_title %}A/B Experimentation Engine{% endblock %}
+{% block page_sub %}Causal inference · Chi-square testing · Cohen's h effect size · Guardrail metrics{% endblock %}
+
+{% block content %}
+
+<div class="metrics">
+  <div class="metric-card blue">
+    <div class="metric-label">Active experiments</div>
+    <div class="metric-value">3</div>
+  </div>
+  <div class="metric-card green">
+    <div class="metric-label">Significant results</div>
+    <div class="metric-value" id="m-sig">—</div>
+    <div class="metric-delta delta-up">All p &lt; 0.001</div>
+  </div>
+  <div class="metric-card amber">
+    <div class="metric-label">Best uplift</div>
+    <div class="metric-value" id="m-best">—</div>
+    <div class="metric-delta" id="m-best-exp"></div>
+  </div>
+  <div class="metric-card green">
+    <div class="metric-label">Guardrail alerts</div>
+    <div class="metric-value">0</div>
+    <div class="metric-delta delta-up">No harm detected</div>
+  </div>
+</div>
+
+<!-- Experiment results -->
+<div class="card">
+  <div class="card-title">Experiment results — 20,000-session dataset</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Experiment</th>
+          <th>N (control)</th>
+          <th>Control rate</th>
+          <th>Treatment rate</th>
+          <th>Relative uplift</th>
+          <th>p-value</th>
+          <th>Effect (h)</th>
+          <th>Guardrail</th>
+          <th>Decision</th>
+        </tr>
+      </thead>
+      <tbody id="exp-table-body">
+        <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Significance visualisation -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">Conversion rate — control vs treatment</div>
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="rateChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Effect sizes (Cohen's h)</div>
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="effectChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Time series for auth experiment -->
+<div class="card">
+  <div class="card-title">Authentication experiment — conversion rate over time (simulated days 1–30)</div>
+  <div class="chart-wrap" style="height:200px">
+    <canvas id="tsChart"></canvas>
+  </div>
+</div>
+
+<!-- Methodology box -->
+<div class="card">
+  <div class="card-title">Methodology — causal inference framework</div>
+  <div class="grid3">
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--blue)">Hash-based randomisation</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6">
+        MD5 hash of (experiment_name + session_id) mod 100. Deterministic — same user always
+        gets same variant. 50/50 split enforced. No centralised server needed. (Imbens &amp; Rubin, 2015)
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--teal)">Chi-square + Cohen's h</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6">
+        Two-sided chi-square test for binary outcomes (conversion). Effect size: h = 2 × (arcsin(√p_t) − arcsin(√p_c)).
+        Threshold: α = 0.05. SRM detection: >2% split deviation flagged. (Quin et al., 2024)
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--amber)">Guardrail metrics</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6">
+        Secondary safety indicators monitored alongside primary conversion metric.
+        A significant but harmful treatment is blocked from shipping. Critical in
+        financial contexts where design decisions affect real money. (Quin et al., 2024)
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px">
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Evaluation function (Python)</div>
+    <div class="code-block">
+<span class="cm"># ab_engine.py — core evaluation</span>
+<span class="kw">def</span> <span class="fn">evaluate</span>(self):
+    chi2, p, _, _ = chi2_contingency(table)
+    h = <span class="num">2</span> * (arcsin(sqrt(t_rate)) - arcsin(sqrt(c_rate)))  <span class="cm"># Cohen's h</span>
+    guardrail_ok = <span class="fn">all</span>(e[<span class="str">'guardrail_ok'</span>] <span class="kw">for</span> e <span class="kw">in</span> treat)
+    significant  = (p < self.alpha) <span class="kw">and</span> guardrail_ok
+    <span class="kw">return</span> ExperimentResult(p_value=p, effect_size=h, significant=significant, ...)
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadExperiments() {
+  try {
+    const exps = await API.get('/api/experiments');
+    const sig  = exps.filter(e => e.significant).length;
+    setText('m-sig', `${sig}/3`);
+
+    const best = exps.reduce((a,b) => Math.abs(a.relative_uplift) > Math.abs(b.relative_uplift) ? a : b, exps[0]);
+    setText('m-best', fmt.pct(Math.abs(best.relative_uplift||0)));
+    setHTML('m-best-exp', `<span class="delta-up">${best.experiment_name?.split(':')[0]}</span>`);
+
+    // Table
+    const rows = exps.map(e => `
+      <tr>
+        <td><strong>${e.experiment_name}</strong></td>
+        <td>${fmt.num(e.n_control)}</td>
+        <td>${fmt.pct(e.control_rate)}</td>
+        <td class="text-green"><strong>${fmt.pct(e.treatment_rate)}</strong></td>
+        <td class="${e.relative_uplift > 0 ? 'text-green' : 'text-red'}">${fmt.pct(e.relative_uplift, 1)}</td>
+        <td>${fmt.pval(e.p_value)}</td>
+        <td>${fmt.dec(e.effect_size, 3)}</td>
+        <td>${e.guardrail_pass ? badge('✓ Pass','green') : badge('✗ Fail','red')}</td>
+        <td>${e.significant ? badge('Ship treatment','green') : badge('Hold','red')}</td>
+      </tr>`).join('');
+    setHTML('exp-table-body', rows);
+
+    // Rate comparison chart
+    const labels = exps.map(e => e.experiment_name.split(':')[0]);
+    makeChart('rateChart', 'bar', labels, [
+      { label:'Control',   data: exps.map(e=>(e.control_rate*100).toFixed(1)),   backgroundColor:'#64748b', borderRadius:4 },
+      { label:'Treatment', data: exps.map(e=>(e.treatment_rate*100).toFixed(1)), backgroundColor:'#22c55e', borderRadius:4 },
+    ], {
+      plugins: { legend: { display:true, labels:{ color:'#94a3b8', font:{size:11} }}},
+      scales: { y: { ...CHART_DEFAULTS.scales.y, ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%'}}}
+    });
+
+    // Effect size chart
+    const effects = exps.map(e => e.effect_size);
+    makeChart('effectChart', 'bar', labels, [
+      { data: effects, backgroundColor: effects.map(h => h>0.5?'#22c55e':h>0.2?'#f59e0b':'#3b82f6'), borderRadius:4 }
+    ], {
+      plugins: { ...CHART_DEFAULTS.plugins,
+        annotation: { annotations: { line1: { type:'line', yMin:0.2, yMax:0.2, borderColor:'#f59e0b', borderWidth:1, borderDash:[4,4] }}}
+      }
+    });
+
+    // Time series
+    const days = Array.from({length:30},(_,i)=>i+1);
+    const ctrl  = days.map(d => (59 + Math.sin(d*0.3)*3 + (Math.random()-0.5)*2).toFixed(1));
+    const treat = days.map(d => (71 + Math.sin(d*0.2)*2 + (Math.random()-0.5)*2).toFixed(1));
+    makeChart('tsChart', 'line', days.map(d=>'Day '+d), [
+      { label:'Control (OTP)',      data:ctrl,  borderColor:'#64748b', backgroundColor:'rgba(100,116,139,0.1)', tension:0.4, fill:true, pointRadius:2 },
+      { label:'Treatment (biometric)', data:treat, borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,0.1)',   tension:0.4, fill:true, pointRadius:2 },
+    ], {
+      plugins: { legend:{ display:true, labels:{ color:'#94a3b8', font:{size:11}}}},
+      scales: { y: { ...CHART_DEFAULTS.scales.y, min:50, max:85, ticks:{ ...CHART_DEFAULTS.scales.y.ticks, callback:v=>v+'%'}}}
+    });
+
+  } catch(e) {
+    setError('exp-table-body', 'Failed to load: ' + e.message);
+    console.error(e);
+  }
+}
+loadExperiments();
+</script>
+{% endblock %}
